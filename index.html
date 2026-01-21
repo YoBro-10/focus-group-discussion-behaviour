@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Group Discussion - Behaviour</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script>
+        // ============================================
+        // FIREBASE CONFIG - REPLACE WITH YOUR VALUES
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDmjEUCPkpSXSjIu_3Aie4R4VkLg1E-i30",
+            authDomain: "focus-group-discussion-word.firebaseapp.com",
+            databaseURL: "https://focus-group-discussion-word-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "focus-group-discussion-word",
+            storageBucket: "focus-group-discussion-word.firebasestorage.app",
+            messagingSenderId: "833887600551",
+            appId: "1:833887600551:web:77329c59d24d9b326e4082"
+        };
+
+        // Initialize Firebase
+        let database;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            console.log("Firebase initialized successfully!");
+        } catch (error) {
+            console.error("Firebase initialization error:", error);
+            document.getElementById('root').innerHTML = `
+                <div class="min-h-screen bg-red-50 flex items-center justify-center p-4">
+                    <div class="bg-white p-6 rounded-lg shadow-lg max-w-md">
+                        <h2 class="text-xl font-bold text-red-600 mb-2">Configuration Error</h2>
+                        <p class="text-gray-700">${error.message}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ============================================
+        // APPLICATION CODE
+        // ============================================
+        
+        const initialWords = [
+            'Caring', 'Celebrating', 'Coaching', 'Collaborating', 'Facilitating', 
+            'Feedback', 'Listening', 'Resolving', 'Sharing', 'Supporting',
+            'Adapting', 'Challenging', 'Deciding', 'Developing', 'Envisioning', 
+            'Experimenting', 'Flexing', 'Innovating', 'Learning', 'Risk-taking',
+            'Approving', 'Complying', 'Controlling', 'Defining', 'Documenting', 
+            'Minimizing', 'Monitoring', 'Scheduling', 'Standardizing', 'Structuring',
+            'Benchmarking', 'Correcting', 'Focusing', 'Prioritizing', 'Rewarding', 
+            'Stretching', 'Targeting', 'Tracking', 'Urgency'
+        ];
+
+        const baskets = [
+            { id: 'basket1', name: 'Collaborate', color: 'bg-blue-100 border-blue-300' },
+            { id: 'basket2', name: 'Clan', color: 'bg-green-100 border-green-300' },
+            { id: 'basket3', name: 'Compete', color: 'bg-yellow-100 border-yellow-300' },
+            { id: 'basket4', name: 'Control', color: 'bg-purple-100 border-purple-300' }
+        ];
+
+        // Global app variable
+        let app = null;
+
+        class FocusGroupApp {
+            constructor() {
+                this.userId = this.getUserId();
+                this.myAvailableWords = this.loadMyWords();
+                this.sharedBaskets = { basket1: [], basket2: [], basket3: [], basket4: [] };
+                this.draggedWord = null;
+                this.draggedFrom = null;
+                this.loading = true;
+                this.errorMessage = null;
+                
+                this.render();
+                this.init();
+            }
+
+            getUserId() {
+                let id = localStorage.getItem('focus-group-user-id');
+                if (!id) {
+                    id = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    localStorage.setItem('focus-group-user-id', id);
+                }
+                console.log('User ID:', id);
+                return id;
+            }
+
+            loadMyWords() {
+                const saved = localStorage.getItem('my-words-list');
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+                // First time - return all initial words
+                return [...initialWords];
+            }
+
+            saveMyWords() {
+                localStorage.setItem('my-words-list', JSON.stringify(this.myAvailableWords));
+            }
+
+            async init() {
+                try {
+                    // Listen to Firebase changes
+                    database.ref('baskets').on('value', (snapshot) => {
+                        const data = snapshot.val();
+                        console.log('Firebase data received:', data);
+                        if (data) {
+                            this.sharedBaskets = data;
+                        }
+                        this.loading = false;
+                        this.render();
+                    }, (error) => {
+                        console.error('Firebase read error:', error);
+                        this.errorMessage = 'Error connecting to database: ' + error.message;
+                        this.loading = false;
+                        this.render();
+                    });
+                } catch (error) {
+                    console.error('Init error:', error);
+                    this.errorMessage = error.message;
+                    this.loading = false;
+                    this.render();
+                }
+            }
+
+            async saveBaskets() {
+                try {
+                    await database.ref('baskets').set(this.sharedBaskets);
+                    console.log('Baskets saved successfully');
+                } catch (error) {
+                    console.error('Save error:', error);
+                    this.showError('Failed to save: ' + error.message);
+                }
+            }
+
+            handleDrop(targetBasket) {
+                console.log('Drop:', this.draggedWord, 'to', targetBasket);
+                if (!this.draggedWord) return;
+
+                let newMyWords = [...this.myAvailableWords];
+                let newBaskets = JSON.parse(JSON.stringify(this.sharedBaskets));
+
+                if (this.draggedFrom === 'available') {
+                    newMyWords = this.myAvailableWords.filter(w => w !== this.draggedWord);
+                    
+                    if (targetBasket !== 'available') {
+                        if (!newBaskets[targetBasket]) newBaskets[targetBasket] = [];
+                        newBaskets[targetBasket].push({ word: this.draggedWord, userId: this.userId });
+                    }
+                } else {
+                    const sourceBasket = this.draggedFrom;
+                    const myContributionIndex = (newBaskets[sourceBasket] || []).findIndex(
+                        item => item.word === this.draggedWord && item.userId === this.userId
+                    );
+
+                    if (myContributionIndex === -1) {
+                        this.showError("You can only move words you've added!");
+                        this.draggedWord = null;
+                        this.draggedFrom = null;
+                        return;
+                    }
+
+                    newBaskets[sourceBasket].splice(myContributionIndex, 1);
+
+                    if (targetBasket === 'available') {
+                        newMyWords.push(this.draggedWord);
+                    } else {
+                        if (!newBaskets[targetBasket]) newBaskets[targetBasket] = [];
+                        newBaskets[targetBasket].push({ word: this.draggedWord, userId: this.userId });
+                    }
+                }
+
+                this.myAvailableWords = newMyWords;
+                this.sharedBaskets = newBaskets;
+                this.saveMyWords();
+                this.saveBaskets();
+
+                this.draggedWord = null;
+                this.draggedFrom = null;
+                this.render();
+            }
+
+            resetMyWords() {
+                // Get all words that I've added to baskets
+                const myUsedWords = new Set();
+                Object.values(this.sharedBaskets).forEach(basket => {
+                    (basket || []).forEach(item => {
+                        if (item.userId === this.userId) {
+                            myUsedWords.add(item.word);
+                        }
+                    });
+                });
+                
+                console.log('My used words:', Array.from(myUsedWords));
+                
+                // Reset to initial words minus the ones I've already used
+                const newWords = initialWords.filter(word => !myUsedWords.has(word));
+                console.log('New available words count:', newWords.length);
+                
+                this.myAvailableWords = newWords;
+                this.saveMyWords();
+                this.render();
+            }
+
+            async resetAllBaskets() {
+                if (!confirm('This will clear all baskets for everyone. Are you sure?')) return;
+                this.sharedBaskets = { basket1: [], basket2: [], basket3: [], basket4: [] };
+                await this.saveBaskets();
+            }
+
+            getBasketDisplay(basketItems) {
+                const wordGroups = {};
+                
+                (basketItems || []).forEach(item => {
+                    if (!wordGroups[item.word]) {
+                        wordGroups[item.word] = { total: 0, myCount: 0 };
+                    }
+                    wordGroups[item.word].total++;
+                    if (item.userId === this.userId) {
+                        wordGroups[item.word].myCount++;
+                    }
+                });
+                
+                return Object.entries(wordGroups).map(([word, data]) => ({
+                    word,
+                    count: data.total,
+                    isMine: data.myCount > 0,
+                    display: data.total > 1 ? `${word} (${data.total})` : word
+                }));
+            }
+
+            showError(message) {
+                this.errorMessage = message;
+                this.render();
+                setTimeout(() => {
+                    this.errorMessage = null;
+                    this.render();
+                }, 3000);
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            render() {
+                const root = document.getElementById('root');
+                
+                if (this.loading) {
+                    root.innerHTML = `
+                        <div class="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                <p class="text-gray-600">Loading shared board...</p>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                root.innerHTML = `
+                    <div class="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <div class="text-center mb-6">
+                                <h1 class="text-3xl font-bold text-gray-800 mb-2">Focus Group Discussion</h1>
+                                <p class="text-gray-600">🌐 Your words are private • Baskets are shared with everyone in real-time</p>
+                                ${this.errorMessage ? `
+                                    <div class="mt-2 text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
+                                        ${this.escapeHtml(this.errorMessage)}
+                                    </div>
+                                ` : ''}
+                                <div class="mt-3 flex gap-2 justify-center flex-wrap">
+                                    <button onclick="app.resetMyWords()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
+                                        Reset My Words
+                                    </button>
+                                    <button onclick="app.resetAllBaskets()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm">
+                                        Clear All Baskets
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div 
+                                ondragover="event.preventDefault()" 
+                                ondrop="app.handleDrop('available')"
+                                class="bg-white rounded-xl shadow-lg p-4 mb-6 border-2 border-dashed border-gray-300 min-h-32">
+                                <h2 class="text-lg font-semibold text-gray-700 mb-3">
+                                    My Available Words
+                                    <span class="text-sm font-normal text-gray-500 ml-2">(Only you see this)</span>
+                                </h2>
+                                <div class="grid grid-cols-4 md:grid-cols-8 gap-2">
+                                    ${this.myAvailableWords.map((word) => {
+                                        const escaped = this.escapeHtml(word);
+                                        return `
+                                        <div 
+                                            draggable="true" 
+                                            ondragstart="app.draggedWord='${escaped}'; app.draggedFrom='available'"
+                                            class="bg-white border-2 border-gray-300 rounded-lg p-2 cursor-move shadow-sm hover:shadow-md transition-shadow flex flex-col items-center justify-center gap-1 text-xs min-h-16">
+                                            <svg class="w-3 h-3 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/>
+                                                <circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>
+                                            </svg>
+                                            <span class="font-medium text-gray-800 text-center leading-tight break-words w-full">${escaped}</span>
+                                        </div>
+                                    `}).join('')}
+                                </div>
+                                ${this.myAvailableWords.length === 0 ? '<p class="text-gray-400 text-center py-8">You\'ve sorted all your words!</p>' : ''}
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                ${baskets.map(basket => {
+                                    const displayItems = this.getBasketDisplay(this.sharedBaskets[basket.id]);
+                                    return `
+                                        <div 
+                                            ondragover="event.preventDefault()" 
+                                            ondrop="app.handleDrop('${basket.id}')"
+                                            class="${basket.color} rounded-xl shadow-lg p-4 border-2 border-dashed min-h-48">
+                                            <h3 class="text-lg font-semibold text-gray-800 mb-3">
+                                                ${basket.name}
+                                                <span class="ml-2 text-sm font-normal text-gray-600">(${displayItems.length} total)</span>
+                                            </h3>
+                                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                                ${displayItems.map(item => {
+                                                    const escaped = this.escapeHtml(item.word);
+                                                    const displayEscaped = this.escapeHtml(item.display);
+                                                    return `
+                                                    <div 
+                                                        ${item.isMine ? `draggable="true" ondragstart="app.draggedWord='${escaped}'; app.draggedFrom='${basket.id}'"` : ''}
+                                                        class="${item.isMine ? 'bg-white border-green-400 cursor-move' : 'bg-gray-50 border-gray-300 cursor-not-allowed'} border-2 rounded-lg p-2 shadow-sm transition-shadow flex flex-col items-center justify-center text-xs min-h-16">
+                                                        ${item.isMine ? '<svg class="w-3 h-3 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>' : ''}
+                                                        <span class="font-medium ${item.isMine ? 'text-gray-800' : 'text-gray-500'} text-center leading-tight break-words w-full">
+                                                            ${displayEscaped}
+                                                        </span>
+                                                        ${item.count > 1 ? `
+                                                            <span class="text-xs text-gray-500 mt-1">
+                                                                <svg class="w-3 h-3 inline mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                                                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                                                </svg>
+                                                                ${item.count} people
+                                                            </span>
+                                                        ` : ''}
+                                                        ${item.isMine ? '<span class="text-xs text-green-600 font-semibold mt-1">✓ Yours</span>' : ''}
+                                                    </div>
+                                                `}).join('')}
+                                            </div>
+                                            ${displayItems.length === 0 ? '<p class="text-gray-400 text-center py-8">Drop words here</p>' : ''}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+
+                            <div class="mt-6 text-center text-sm text-gray-500">
+                                <p>💡 Words with a green border and "✓ Yours" can be dragged to move or remove them</p>
+                                <p class="mt-1">Gray words were added by others and cannot be moved</p>
+                                <p class="mt-1 text-green-600 font-semibold">🔥 Real-time collaboration enabled!</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize app when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, initializing app...');
+            app = new FocusGroupApp();
+        });
+    </script>
+</body>
+</html>
