@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Focus Group Discussion - Behaviour</title>
+    <title>Culture Behaviors Board</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -32,30 +32,27 @@
         const database = firebase.database();
 
         const initialWords = [
-            // Blue - Collaborative
-            { text: 'Caring', color: 'bg-blue-100 border-blue-400' }, { text: 'Celebrating', color: 'bg-blue-100 border-blue-400' },
-            { text: 'Coaching', color: 'bg-blue-100 border-blue-400' }, { text: 'Collaborating', color: 'bg-blue-100 border-blue-400' },
-            { text: 'Facilitating', color: 'bg-blue-100 border-blue-400' }, { text: 'Feedback', color: 'bg-blue-100 border-blue-400' },
-            { text: 'Listening', color: 'bg-blue-100 border-blue-400' }, { text: 'Resolving', color: 'bg-blue-100 border-blue-400' },
-            { text: 'Sharing', color: 'bg-blue-100 border-blue-400' }, { text: 'Supporting', color: 'bg-blue-100 border-blue-400' },
-            // Green - Creative
-            { text: 'Adapting', color: 'bg-green-100 border-green-400' }, { text: 'Challenging', color: 'bg-green-100 border-green-400' },
-            { text: 'Deciding', color: 'bg-green-100 border-green-400' }, { text: 'Developing', color: 'bg-green-100 border-green-400' },
-            { text: 'Envisioning', color: 'bg-green-100 border-green-400' }, { text: 'Experimenting', color: 'bg-green-100 border-green-400' },
-            { text: 'Flexing', color: 'bg-green-100 border-green-400' }, { text: 'Innovating', color: 'bg-green-100 border-green-400' },
-            { text: 'Learning', color: 'bg-green-100 border-green-400' }, { text: 'Risk-taking', color: 'bg-green-100 border-green-400' },
-            // Orange - Control
-            { text: 'Approving', color: 'bg-orange-100 border-orange-400' }, { text: 'Complying', color: 'bg-orange-100 border-orange-400' },
-            { text: 'Controlling', color: 'bg-orange-100 border-orange-400' }, { text: 'Defining', color: 'bg-orange-100 border-orange-400' },
-            { text: 'Documenting', color: 'bg-orange-100 border-orange-400' }, { text: 'Minimizing', color: 'bg-orange-100 border-orange-400' },
-            { text: 'Monitoring', color: 'bg-orange-100 border-orange-400' }, { text: 'Scheduling', color: 'bg-orange-100 border-orange-400' },
-            { text: 'Standardizing', color: 'bg-orange-100 border-orange-400' }, { text: 'Structuring', color: 'bg-orange-100 border-orange-400' },
-            // Purple - Compete
-            { text: 'Benchmarking', color: 'bg-purple-100 border-purple-400' }, { text: 'Correcting', color: 'bg-purple-100 border-purple-400' },
-            { text: 'Focusing', color: 'bg-purple-100 border-purple-400' }, { text: 'Prioritizing', color: 'bg-purple-100 border-purple-400' },
-            { text: 'Rewarding', color: 'bg-purple-100 border-purple-400' }, { text: 'Stretching', color: 'bg-purple-100 border-purple-400' },
-            { text: 'Targeting', color: 'bg-purple-100 border-purple-400' }, { text: 'Tracking', color: 'bg-purple-100 border-purple-400' },
-            { text: 'Urgency', color: 'bg-purple-100 border-purple-400' }
+            // Blue - Clan Culture (Collaborate)
+            { text: 'Listening', color: 'bg-blue-100 border-blue-400' }, { text: 'Communicating', color: 'bg-blue-100 border-blue-400' },
+            { text: 'Supporting', color: 'bg-blue-100 border-blue-400' }, { text: 'Coaching', color: 'bg-blue-100 border-blue-400' },
+            { text: 'Caring', color: 'bg-blue-100 border-blue-400' }, { text: 'Empowering', color: 'bg-blue-100 border-blue-400' },
+            { text: 'Sharing', color: 'bg-blue-100 border-blue-400' }, { text: 'Encouraging', color: 'bg-blue-100 border-blue-400' },
+            { text: 'Celebrating', color: 'bg-blue-100 border-blue-400' },
+            // Green - Adhocracy Culture (Create)
+            { text: 'Experimenting', color: 'bg-green-100 border-green-400' }, { text: 'Challenging', color: 'bg-green-100 border-green-400' },
+            { text: 'Innovating', color: 'bg-green-100 border-green-400' }, { text: 'Learning', color: 'bg-green-100 border-green-400' },
+            { text: 'Risking', color: 'bg-green-100 border-green-400' }, { text: 'Exploring', color: 'bg-green-100 border-green-400' },
+            { text: 'Envisioning', color: 'bg-green-100 border-green-400' }, { text: 'Adapting', color: 'bg-green-100 border-green-400' },
+            // Orange - Hierarchy Culture (Control)
+            { text: 'Structuring', color: 'bg-orange-100 border-orange-400' }, { text: 'Defining', color: 'bg-orange-100 border-orange-400' },
+            { text: 'Documenting', color: 'bg-orange-100 border-orange-400' }, { text: 'Monitoring', color: 'bg-orange-100 border-orange-400' },
+            { text: 'Approving', color: 'bg-orange-100 border-orange-400' }, { text: 'Scheduling', color: 'bg-orange-100 border-orange-400' },
+            { text: 'Standardising', color: 'bg-orange-100 border-orange-400' }, { text: 'Controlling', color: 'bg-orange-100 border-orange-400' },
+            // Purple - Market Culture (Compete)
+            { text: 'Prioritising', color: 'bg-purple-100 border-purple-400' }, { text: 'Tracking', color: 'bg-purple-100 border-purple-400' },
+            { text: 'Benchmarking', color: 'bg-purple-100 border-purple-400' }, { text: 'Competing', color: 'bg-purple-100 border-purple-400' },
+            { text: 'Striving', color: 'bg-purple-100 border-purple-400' }, { text: 'Rewarding', color: 'bg-purple-100 border-purple-400' },
+            { text: 'Driving', color: 'bg-purple-100 border-purple-400' }
         ];
 
         const baskets = [
@@ -81,20 +78,20 @@
             }
 
             getUserId() {
-                let id = localStorage.getItem('fg-behave-id');
+                let id = localStorage.getItem('fg-behave-v5-id');
                 if (!id) {
                     id = 'u_' + Math.random().toString(36).substr(2, 9);
-                    localStorage.setItem('fg-behave-id', id);
+                    localStorage.setItem('fg-behave-v5-id', id);
                 }
                 return id;
             }
 
             loadMyWords() {
-                const saved = localStorage.getItem('my-behave-list');
+                const saved = localStorage.getItem('my-behave-v5-list');
                 return saved ? JSON.parse(saved) : [...initialWords];
             }
 
-            saveMyWords() { localStorage.setItem('my-behave-list', JSON.stringify(this.myAvailableWords)); }
+            saveMyWords() { localStorage.setItem('my-behave-v5-list', JSON.stringify(this.myAvailableWords)); }
 
             setupPresence() {
                 const statusRef = database.ref('/status/' + this.userId);
@@ -116,7 +113,7 @@
                 });
                 const link = document.createElement("a");
                 link.setAttribute("href", encodeURI(csv));
-                link.setAttribute("download", "behavior_results.csv");
+                link.setAttribute("download", "behavior_alignment_results.csv");
                 link.click();
             }
 
@@ -129,16 +126,14 @@
                         this.loading = false;
                         this.render();
                     }, (err) => {
-                        this.errorMessage = "Permission Denied. Please check Firebase Rules.";
+                        this.errorMessage = "Access Denied. Ensure Firebase Rules are updated.";
                         this.loading = false;
                         this.render();
                     });
                 } catch (e) { this.render(); }
             }
 
-            async saveBaskets() { 
-                await database.ref('baskets').transaction(() => this.sharedBaskets); 
-            }
+            async saveBaskets() { await database.ref('baskets').transaction(() => this.sharedBaskets); }
 
             handleDrop(target) {
                 if (!this.draggedWord) return;
@@ -172,7 +167,7 @@
             }
 
             async resetAllBaskets() {
-                if (confirm('Clear the group board?')) {
+                if (confirm('Clear board for everyone?')) {
                     this.sharedBaskets = { basket1: [], basket2: [], basket3: [], basket4: [] };
                     await this.saveBaskets();
                 }
@@ -195,17 +190,17 @@
 
             render() {
                 const root = document.getElementById('root');
-                if (this.loading) { root.innerHTML = '<div class="h-screen flex items-center justify-center font-bold">Loading Behavior Board...</div>'; return; }
+                if (this.loading) { root.innerHTML = '<div class="h-screen flex items-center justify-center font-bold">Connecting...</div>'; return; }
                 root.innerHTML = `
                     <div class="min-h-screen bg-slate-100 p-2 md:p-4 font-sans text-slate-900">
                         <div class="max-w-6xl mx-auto">
                             <div class="text-center mb-6">
                                 <h1 class="text-xl md:text-3xl font-black uppercase tracking-tighter">Culture Behaviors</h1>
-                                <p class="text-indigo-600 font-bold text-xs md:text-sm">👥 Live: <span id="user-count">...</span></p>
+                                <p class="text-indigo-600 font-bold text-xs md:text-sm">👥 Live Participants: <span id="user-count">...</span></p>
                                 <div class="mt-4 flex gap-2 justify-center flex-wrap">
-                                    <button onclick="app.resetMyWords()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase shadow-md hover:bg-emerald-700 transition-all">Reset My List</button>
+                                    <button onclick="app.resetMyWords()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase shadow-md">Reset My List</button>
                                     ${window.location.search.includes('role=admin') ? `
-                                        <button onclick="app.exportToCSV()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase shadow-md">Export CSV</button>
+                                        <button onclick="app.exportToCSV()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase shadow-md">Export Data</button>
                                         <button onclick="app.resetAllBaskets()" class="bg-rose-600 text-white px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase shadow-md">Clear Board</button>
                                     ` : ''}
                                 </div>
@@ -213,7 +208,7 @@
                             </div>
 
                             <div ondragover="event.preventDefault()" ondrop="app.handleDrop('available')" class="bg-white rounded-2xl shadow-inner p-3 md:p-5 mb-6 border-2 border-dashed border-slate-300 min-h-24">
-                                <h2 class="font-black text-[10px] uppercase tracking-widest text-slate-400 mb-3">Behaviors Selection</h2>
+                                <h2 class="font-black text-[10px] uppercase tracking-widest text-slate-400 mb-3">Available Behaviors Pool</h2>
                                 <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
                                     ${this.myAvailableWords.map(w => `
                                         <div draggable="true" ondragstart="app.draggedWord='${this.escapeHtml(w.text)}'; app.draggedFrom='available'"
