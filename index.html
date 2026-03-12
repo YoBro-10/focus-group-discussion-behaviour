@@ -3,20 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Focus Group Discussions - Culture Behaviours</title>
+    <title>Focus Group - Culture Behaviours</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <style>
         body { touch-action: manipulation; }
-        .selected-word { ring: 4px solid #4f46e5 !important; transform: scale(1.05); z-index: 50; }
+        .selected-word { 
+            ring: 4px solid #4f46e5 !important; 
+            box-shadow: 0 0 15px rgba(79, 70, 229, 0.4);
+            transform: scale(1.05); 
+            z-index: 50; 
+        }
     </style>
 </head>
 <body class="bg-slate-100">
     <div id="root">
         <div class="h-screen flex items-center justify-center font-bold text-slate-500">
-            Connecting to Behaviours Board...
+            Connecting...
         </div>
     </div>
 
@@ -32,23 +37,19 @@
         };
 
         const initialWords = [
-            // Blue - Clan Culture
             { text: 'Listening', color: 'bg-blue-100 border-blue-400' }, { text: 'Communicating', color: 'bg-blue-100 border-blue-400' },
             { text: 'Supporting', color: 'bg-blue-100 border-blue-400' }, { text: 'Coaching', color: 'bg-blue-100 border-blue-400' },
             { text: 'Caring', color: 'bg-blue-100 border-blue-400' }, { text: 'Empowering', color: 'bg-blue-100 border-blue-400' },
             { text: 'Sharing', color: 'bg-blue-100 border-blue-400' }, { text: 'Encouraging', color: 'bg-blue-100 border-blue-400' },
             { text: 'Celebrating', color: 'bg-blue-100 border-blue-400' },
-            // Green - Adhocracy Culture
             { text: 'Experimenting', color: 'bg-green-100 border-green-400' }, { text: 'Challenging', color: 'bg-green-100 border-green-400' },
             { text: 'Innovating', color: 'bg-green-100 border-green-400' }, { text: 'Learning', color: 'bg-green-100 border-green-400' },
             { text: 'Risking', color: 'bg-green-100 border-green-400' }, { text: 'Exploring', color: 'bg-green-100 border-green-400' },
             { text: 'Envisioning', color: 'bg-green-100 border-green-400' }, { text: 'Adapting', color: 'bg-green-100 border-green-400' },
-            // Orange - Hierarchy Culture
             { text: 'Structuring', color: 'bg-orange-100 border-orange-400' }, { text: 'Defining', color: 'bg-orange-100 border-orange-400' },
             { text: 'Documenting', color: 'bg-orange-100 border-orange-400' }, { text: 'Monitoring', color: 'bg-orange-100 border-orange-400' },
             { text: 'Approving', color: 'bg-orange-100 border-orange-400' }, { text: 'Scheduling', color: 'bg-orange-100 border-orange-400' },
             { text: 'Standardising', color: 'bg-orange-100 border-orange-400' }, { text: 'Controlling', color: 'bg-orange-100 border-orange-400' },
-            // Purple - Market Culture
             { text: 'Prioritising', color: 'bg-purple-100 border-purple-400' }, { text: 'Tracking', color: 'bg-purple-100 border-purple-400' },
             { text: 'Benchmarking', color: 'bg-purple-100 border-purple-400' }, { text: 'Competing', color: 'bg-purple-100 border-purple-400' },
             { text: 'Striving', color: 'bg-purple-100 border-purple-400' }, { text: 'Rewarding', color: 'bg-purple-100 border-purple-400' },
@@ -104,7 +105,7 @@
                         this.render();
                     });
                 } catch (e) {
-                    document.getElementById('root').innerHTML = `<div class='p-10'>Connection Error: ${e.message}</div>`;
+                    document.getElementById('root').innerHTML = `<div class='p-10'>Error: ${e.message}</div>`;
                 }
             }
 
@@ -174,7 +175,7 @@
             }
 
             async clearMyBaskets() {
-                if (!confirm("Reset your placements? This returns your behaviors to the pool.")) return;
+                if (!confirm("Return all your placed behaviors back to the pool?")) return;
                 const recovered = [];
                 for (const bId of Object.keys(this.sharedBaskets)) {
                     await database.ref(`baskets/${bId}`).transaction((current) => {
@@ -197,8 +198,20 @@
             }
 
             async resetAllBaskets() {
-                if (confirm('ADMIN: Clear entire board for everyone?')) {
+                if (confirm('ADMIN: Wipe the entire board?')) {
                     await database.ref('baskets').set({ basket1: [], basket2: [], basket3: [], basket4: [] });
+                }
+            }
+
+            resetMyPool() {
+                if (confirm('Refresh your available words pool?')) {
+                    const used = new Set();
+                    Object.values(this.sharedBaskets).forEach(b => {
+                        if (Array.isArray(b)) b.forEach(i => { if (i.userId === this.userId) used.add(i.word); });
+                    });
+                    this.myAvailableWords = initialWords.filter(w => !used.has(w.text));
+                    this.saveMyWords();
+                    this.render();
                 }
             }
 
@@ -238,23 +251,24 @@
                 if (this.loading) return;
 
                 root.innerHTML = `
-                <div class="min-h-screen p-2 md:p-4 text-slate-900">
+                <div class="min-h-screen p-2 md:p-4">
                     <div class="max-w-6xl mx-auto">
                         <div class="text-center mb-6">
-                            <h1 class="text-xl md:text-3xl font-black uppercase tracking-tighter">Culture Behaviours Alignment</h1>
+                            <h1 class="text-xl md:text-3xl font-black uppercase tracking-tighter">Culture Behaviours Board</h1>
                             <p class="text-indigo-600 font-bold">👥 Participants: <span id="user-count">${this.currentParticipants}</span></p>
                             <div class="mt-4 flex gap-2 justify-center flex-wrap">
                                 <button onclick="app.clearMyBaskets()" class="bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Clear My Choices</button>
+                                <button onclick="app.resetMyPool()" class="bg-emerald-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Refresh Pool</button>
                                 ${this.isAdmin ? `
                                     <button onclick="app.exportToCSV()" class="bg-indigo-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Export CSV</button>
-                                    <button onclick="app.resetAllBaskets()" class="bg-rose-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Clear Board</button>
+                                    <button onclick="app.resetAllBaskets()" class="bg-rose-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Clear All</button>
                                 ` : ''}
                             </div>
                         </div>
 
                         <div ondragover="event.preventDefault()" ondrop="app.handleDrop('available')" onclick="app.handleDrop('available')"
                              class="bg-white rounded-2xl shadow-inner p-4 mb-6 border-2 border-dashed border-slate-300 min-h-24 text-center cursor-pointer">
-                            <h2 class="font-black text-[10px] uppercase text-slate-400 mb-3 tracking-widest">Available Behaviors Pool</h2>
+                            <h2 class="font-black text-[10px] uppercase text-slate-400 mb-3 tracking-widest">Available Pool (Click word then click basket)</h2>
                             <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2">
                                 ${this.myAvailableWords.map(w => `
                                     <div draggable="true" ondragstart="app.draggedWord='${this.escapeHtml(w.text)}'; app.draggedFrom='available'"
@@ -289,7 +303,6 @@
                 </div>`;
             }
         }
-
         const app = new FocusGroupApp();
     </script>
 </body>
