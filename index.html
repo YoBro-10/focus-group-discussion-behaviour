@@ -10,13 +10,16 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <style>
         body { touch-action: manipulation; }
-        .word-tag { transition: transform 0.1s ease; }
-        .word-tag:active { transform: scale(0.95); }
+        .selected-word { ring: 4px solid #4f46e5 !important; transform: scale(1.05); z-index: 50; }
     </style>
 </head>
-<body>
-    <div id="root"></div>
-    
+<body class="bg-slate-100">
+    <div id="root">
+        <div class="h-screen flex items-center justify-center font-bold text-slate-500">
+            Connecting to Behaviours Board...
+        </div>
+    </div>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyDMuZMfy1WbJ80XSGaJxrl8XOz5c2b9yAY",
@@ -28,27 +31,24 @@
             appId: "1:179558163142:web:e5a00b545f2f22d07e2dc7"
         };
 
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
         const initialWords = [
-            // Blue - Clan Culture (Collaborate)
+            // Blue - Clan Culture
             { text: 'Listening', color: 'bg-blue-100 border-blue-400' }, { text: 'Communicating', color: 'bg-blue-100 border-blue-400' },
             { text: 'Supporting', color: 'bg-blue-100 border-blue-400' }, { text: 'Coaching', color: 'bg-blue-100 border-blue-400' },
             { text: 'Caring', color: 'bg-blue-100 border-blue-400' }, { text: 'Empowering', color: 'bg-blue-100 border-blue-400' },
             { text: 'Sharing', color: 'bg-blue-100 border-blue-400' }, { text: 'Encouraging', color: 'bg-blue-100 border-blue-400' },
             { text: 'Celebrating', color: 'bg-blue-100 border-blue-400' },
-            // Green - Adhocracy Culture (Create)
+            // Green - Adhocracy Culture
             { text: 'Experimenting', color: 'bg-green-100 border-green-400' }, { text: 'Challenging', color: 'bg-green-100 border-green-400' },
             { text: 'Innovating', color: 'bg-green-100 border-green-400' }, { text: 'Learning', color: 'bg-green-100 border-green-400' },
             { text: 'Risking', color: 'bg-green-100 border-green-400' }, { text: 'Exploring', color: 'bg-green-100 border-green-400' },
             { text: 'Envisioning', color: 'bg-green-100 border-green-400' }, { text: 'Adapting', color: 'bg-green-100 border-green-400' },
-            // Orange - Hierarchy Culture (Control)
+            // Orange - Hierarchy Culture
             { text: 'Structuring', color: 'bg-orange-100 border-orange-400' }, { text: 'Defining', color: 'bg-orange-100 border-orange-400' },
             { text: 'Documenting', color: 'bg-orange-100 border-orange-400' }, { text: 'Monitoring', color: 'bg-orange-100 border-orange-400' },
             { text: 'Approving', color: 'bg-orange-100 border-orange-400' }, { text: 'Scheduling', color: 'bg-orange-100 border-orange-400' },
             { text: 'Standardising', color: 'bg-orange-100 border-orange-400' }, { text: 'Controlling', color: 'bg-orange-100 border-orange-400' },
-            // Purple - Market Culture (Compete)
+            // Purple - Market Culture
             { text: 'Prioritising', color: 'bg-purple-100 border-purple-400' }, { text: 'Tracking', color: 'bg-purple-100 border-purple-400' },
             { text: 'Benchmarking', color: 'bg-purple-100 border-purple-400' }, { text: 'Competing', color: 'bg-purple-100 border-purple-400' },
             { text: 'Striving', color: 'bg-purple-100 border-purple-400' }, { text: 'Rewarding', color: 'bg-purple-100 border-purple-400' },
@@ -56,13 +56,14 @@
         ];
 
         const baskets = [
-            { id: 'basket1', name: 'Clan Culture (Collaborate)', color: 'bg-white border-black' },
-            { id: 'basket2', name: 'Adhocracy Culture (Create)', color: 'bg-white border-black' },
-            { id: 'basket3', name: 'Market Culture (Compete)', color: 'bg-white border-black' },
-            { id: 'basket4', name: 'Hierarchy Culture (Control)', color: 'bg-white border-black' }
+            { id: 'basket1', name: 'Clan Culture (Collaborate)' },
+            { id: 'basket2', name: 'Adhocracy Culture (Create)' },
+            { id: 'basket3', name: 'Market Culture (Compete)' },
+            { id: 'basket4', name: 'Hierarchy Culture (Control)' }
         ];
 
-        let app = null;
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
         class FocusGroupApp {
             constructor() {
@@ -72,8 +73,8 @@
                 this.draggedWord = null;
                 this.draggedFrom = null;
                 this.loading = true;
-                this.errorMessage = null;
-                this.render();
+                this.currentParticipants = 0;
+                this.isAdmin = new URLSearchParams(window.location.search).get('role') === 'admin';
                 this.init();
             }
 
@@ -93,84 +94,124 @@
 
             saveMyWords() { localStorage.setItem('my-behave-v5-list', JSON.stringify(this.myAvailableWords)); }
 
+            async init() {
+                try {
+                    await firebase.auth().signInAnonymously();
+                    this.setupPresence();
+                    database.ref('baskets').on('value', (s) => {
+                        this.sharedBaskets = s.val() || { basket1: [], basket2: [], basket3: [], basket4: [] };
+                        this.loading = false;
+                        this.render();
+                    });
+                } catch (e) {
+                    document.getElementById('root').innerHTML = `<div class='p-10'>Connection Error: ${e.message}</div>`;
+                }
+            }
+
             setupPresence() {
                 const statusRef = database.ref('/status/' + this.userId);
                 database.ref('.info/connected').on('value', (s) => {
                     if (s.val()) statusRef.onDisconnect().remove().then(() => statusRef.set(true));
                 });
                 database.ref('/status').on('value', (s) => {
+                    this.currentParticipants = s.numChildren() || 0;
                     const el = document.getElementById('user-count');
-                    if (el) el.textContent = s.numChildren() || 0;
+                    if (el) el.textContent = this.currentParticipants;
                 });
             }
 
-            exportToCSV() {
-                let csv = "data:text/csv;charset=utf-8,Basket,Behavior,Votes\n";
-                baskets.forEach(b => {
-                    this.getBasketDisplay(this.sharedBaskets[b.id]).forEach(i => {
-                        csv += `"${b.name}","${i.word}",${i.count}\n`;
-                    });
-                });
-                const link = document.createElement("a");
-                link.setAttribute("href", encodeURI(csv));
-                link.setAttribute("download", "behavior_alignment_results.csv");
-                link.click();
+            handleSelect(wordText, from) {
+                if (this.draggedWord === wordText) {
+                    this.draggedWord = null;
+                    this.draggedFrom = null;
+                } else {
+                    this.draggedWord = wordText;
+                    this.draggedFrom = from;
+                }
+                this.render();
             }
 
-            async init() {
-                try {
-                    await firebase.auth().signInAnonymously();
-                    this.setupPresence();
-                    database.ref('baskets').on('value', (s) => {
-                        if (s.val()) this.sharedBaskets = s.val();
-                        this.loading = false;
-                        this.render();
-                    }, (err) => {
-                        this.errorMessage = "Access Denied. Ensure Firebase Rules are updated.";
-                        this.loading = false;
-                        this.render();
-                    });
-                } catch (e) { this.render(); }
-            }
-
-            async saveBaskets() { await database.ref('baskets').transaction(() => this.sharedBaskets); }
-
-            handleDrop(target) {
+            async handleDrop(target) {
                 if (!this.draggedWord) return;
-                let newMyWords = [...this.myAvailableWords];
-                let newBaskets = JSON.parse(JSON.stringify(this.sharedBaskets));
-                const wordInfo = initialWords.find(w => w.text === this.draggedWord);
+                const wordText = this.draggedWord;
+                const from = this.draggedFrom;
+                const wordInfo = initialWords.find(w => w.text === wordText);
 
-                if (this.draggedFrom === 'available') {
-                    newMyWords = newMyWords.filter(w => w.text !== this.draggedWord);
-                    if (target !== 'available') {
-                        if (!newBaskets[target]) newBaskets[target] = [];
-                        newBaskets[target].push({ word: this.draggedWord, userId: this.userId, color: wordInfo.color });
+                if (from === target) {
+                    this.draggedWord = null;
+                    this.render();
+                    return;
+                }
+
+                if (from === 'available') {
+                    this.myAvailableWords = this.myAvailableWords.filter(w => w.text !== wordText);
+                    this.saveMyWords();
+                } else {
+                    await database.ref(`baskets/${from}`).transaction((c) => {
+                        if (!c) return c;
+                        const idx = c.findIndex(i => i.word === wordText && i.userId === this.userId);
+                        if (idx > -1) c.splice(idx, 1);
+                        return c;
+                    });
+                }
+
+                if (target === 'available') {
+                    if (!this.myAvailableWords.find(w => w.text === wordText)) {
+                        this.myAvailableWords.push(wordInfo);
+                        this.saveMyWords();
                     }
                 } else {
-                    const idx = (newBaskets[this.draggedFrom] || []).findIndex(i => i.word === this.draggedWord && i.userId === this.userId);
-                    if (idx === -1) return;
-                    newBaskets[this.draggedFrom].splice(idx, 1);
-                    if (target === 'available') newMyWords.push(wordInfo);
-                    else newBaskets[target].push({ word: this.draggedWord, userId: this.userId, color: wordInfo.color });
+                    await database.ref(`baskets/${target}`).transaction((c) => {
+                        c = c || [];
+                        c.push({ word: wordText, userId: this.userId, color: wordInfo.color });
+                        return c;
+                    });
                 }
-                this.myAvailableWords = newMyWords;
-                this.sharedBaskets = newBaskets;
-                this.saveMyWords(); this.saveBaskets(); this.render();
+
+                this.draggedWord = null;
+                this.draggedFrom = null;
+                this.render();
             }
 
-            resetMyWords() {
-                const used = new Set();
-                Object.values(this.sharedBaskets).forEach(b => b?.forEach(i => { if (i.userId === this.userId) used.add(i.word); }));
-                this.myAvailableWords = initialWords.filter(w => !used.has(w.text));
-                this.saveMyWords(); this.render();
+            async clearMyBaskets() {
+                if (!confirm("Reset your placements? This returns your behaviors to the pool.")) return;
+                const recovered = [];
+                for (const bId of Object.keys(this.sharedBaskets)) {
+                    await database.ref(`baskets/${bId}`).transaction((current) => {
+                        if (!current) return current;
+                        return current.filter(item => {
+                            if (item.userId === this.userId) {
+                                recovered.push(item.word);
+                                return false;
+                            }
+                            return true;
+                        });
+                    });
+                }
+                recovered.forEach(wordText => {
+                    const info = initialWords.find(w => w.text === wordText);
+                    if (info && !this.myAvailableWords.find(p => p.text === wordText)) this.myAvailableWords.push(info);
+                });
+                this.saveMyWords();
+                this.render();
             }
 
             async resetAllBaskets() {
-                if (confirm('Clear board for everyone?')) {
-                    this.sharedBaskets = { basket1: [], basket2: [], basket3: [], basket4: [] };
-                    await this.saveBaskets();
+                if (confirm('ADMIN: Clear entire board for everyone?')) {
+                    await database.ref('baskets').set({ basket1: [], basket2: [], basket3: [], basket4: [] });
                 }
+            }
+
+            exportToCSV() {
+                let csv = "data:text/csv;charset=utf-8,Basket,Behavior,Count\n";
+                baskets.forEach(b => {
+                    const items = this.getBasketDisplay(this.sharedBaskets[b.id]);
+                    items.forEach(i => { csv += `"${b.name}","${i.word}",${i.count}\n`; });
+                });
+                const link = document.createElement("a");
+                link.setAttribute("href", encodeURI(csv));
+                link.setAttribute("download", "behavior_results.csv");
+                link.click();
             }
 
             getBasketDisplay(items) {
@@ -186,68 +227,70 @@
                 }));
             }
 
-            escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+            escapeHtml(t) { 
+                const d = document.createElement('div'); 
+                d.textContent = t; 
+                return d.innerHTML; 
+            }
 
             render() {
                 const root = document.getElementById('root');
-                if (this.loading) { root.innerHTML = '<div class="h-screen flex items-center justify-center font-bold">Connecting...</div>'; return; }
+                if (this.loading) return;
+
                 root.innerHTML = `
-                    <div class="min-h-screen bg-slate-100 p-2 md:p-4 font-sans text-slate-900">
-                        <div class="max-w-6xl mx-auto">
-                            <div class="text-center mb-6">
-                                <h1 class="text-xl md:text-3xl font-black uppercase tracking-tighter">Focus Group Discussions - Culture Behaviours</h1>
-                                <p class="text-indigo-600 font-bold text-xs md:text-sm">👥 Live Participants: <span id="user-count">...</span></p>
-                                <div class="mt-4 flex gap-2 justify-center flex-wrap">
-                                    <button onclick="app.resetMyWords()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase shadow-md">Reset My List</button>
-                                    ${window.location.search.includes('role=admin') ? `
-                                        <button onclick="app.exportToCSV()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase shadow-md">Export Data</button>
-                                        <button onclick="app.resetAllBaskets()" class="bg-rose-600 text-white px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase shadow-md">Clear Board</button>
-                                    ` : ''}
-                                </div>
-                                ${this.errorMessage ? `<div class="bg-red-100 text-red-700 p-2 rounded mt-2 text-xs font-bold">${this.errorMessage}</div>` : ''}
-                            </div>
-
-                            <div ondragover="event.preventDefault()" ondrop="app.handleDrop('available')" class="bg-white rounded-2xl shadow-inner p-3 md:p-5 mb-6 border-2 border-dashed border-slate-300 min-h-24">
-                                <h2 class="font-black text-[10px] uppercase tracking-widest text-slate-400 mb-3">Available Behaviors Pool</h2>
-                                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                                    ${this.myAvailableWords.map(w => `
-                                        <div draggable="true" ondragstart="app.draggedWord='${this.escapeHtml(w.text)}'; app.draggedFrom='available'"
-                                             class="${w.color} border-2 rounded-lg p-2 cursor-grab active:cursor-grabbing text-[10px] text-center font-bold uppercase tracking-tight shadow-sm hover:scale-105 transition-transform">
-                                            ${this.escapeHtml(w.text)}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                ${baskets.map(b => {
-                                    const items = this.getBasketDisplay(this.sharedBaskets[b.id]);
-                                    return `
-                                        <div ondragover="event.preventDefault()" ondrop="app.handleDrop('${b.id}')" class="bg-white border-2 border-dotted border-black rounded-2xl p-4 min-h-[180px] shadow-lg">
-                                            <h3 class="font-black text-center mb-4 uppercase text-xs tracking-widest border-b border-black pb-1">${b.name}</h3>
-                                            <div class="grid grid-cols-2 gap-2">
-                                                ${items.map(i => `
-                                                    <div ${i.isMine ? `draggable="true" ondragstart="app.draggedWord='${this.escapeHtml(i.word)}'; app.draggedFrom='${b.id}'"` : ''}
-                                                         class="${i.color} ${i.isMine ? 'ring-2 ring-black' : 'border-slate-300 opacity-80'} border-2 rounded p-1.5 text-[9px] text-center font-bold uppercase">
-                                                        ${this.escapeHtml(i.display)} ${i.isMine ? '●' : ''}
-                                                    </div>
-                                                `).join('')}
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
+                <div class="min-h-screen p-2 md:p-4 text-slate-900">
+                    <div class="max-w-6xl mx-auto">
+                        <div class="text-center mb-6">
+                            <h1 class="text-xl md:text-3xl font-black uppercase tracking-tighter">Culture Behaviours Alignment</h1>
+                            <p class="text-indigo-600 font-bold">👥 Participants: <span id="user-count">${this.currentParticipants}</span></p>
+                            <div class="mt-4 flex gap-2 justify-center flex-wrap">
+                                <button onclick="app.clearMyBaskets()" class="bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Clear My Choices</button>
+                                ${this.isAdmin ? `
+                                    <button onclick="app.exportToCSV()" class="bg-indigo-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Export CSV</button>
+                                    <button onclick="app.resetAllBaskets()" class="bg-rose-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Clear Board</button>
+                                ` : ''}
                             </div>
                         </div>
-                    </div>`;
-                if (database) database.ref('/status').once('value', (s) => { 
-                    const el = document.getElementById('user-count'); 
-                    if(el) el.textContent = s.numChildren() || 0; 
-                });
+
+                        <div ondragover="event.preventDefault()" ondrop="app.handleDrop('available')" onclick="app.handleDrop('available')"
+                             class="bg-white rounded-2xl shadow-inner p-4 mb-6 border-2 border-dashed border-slate-300 min-h-24 text-center cursor-pointer">
+                            <h2 class="font-black text-[10px] uppercase text-slate-400 mb-3 tracking-widest">Available Behaviors Pool</h2>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2">
+                                ${this.myAvailableWords.map(w => `
+                                    <div draggable="true" ondragstart="app.draggedWord='${this.escapeHtml(w.text)}'; app.draggedFrom='available'"
+                                         onclick="event.stopPropagation(); app.handleSelect('${this.escapeHtml(w.text)}', 'available')"
+                                         class="${w.color} ${this.draggedWord === w.text ? 'selected-word' : ''} border-2 rounded-lg p-2 cursor-grab text-[10px] font-bold uppercase shadow-sm transition-all">
+                                        ${this.escapeHtml(w.text)}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            ${baskets.map(b => {
+                                const items = this.getBasketDisplay(this.sharedBaskets[b.id]);
+                                return `
+                                    <div ondragover="event.preventDefault()" ondrop="app.handleDrop('${b.id}')" onclick="app.handleDrop('${b.id}')"
+                                         class="bg-white border-2 border-black rounded-2xl p-4 min-h-[180px] shadow-lg cursor-pointer">
+                                        <h3 class="font-black text-center mb-4 uppercase text-xs border-b-2 border-black pb-2 tracking-widest">${b.name}</h3>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            ${items.map(i => `
+                                                <div ${i.isMine ? `draggable="true" ondragstart="app.draggedWord='${this.escapeHtml(i.word)}'; app.draggedFrom='${b.id}'" onclick="event.stopPropagation(); app.handleSelect('${this.escapeHtml(i.word)}', '${b.id}')"` : ''}
+                                                     class="${i.color} ${i.isMine ? 'ring-2 ring-black' : 'opacity-60'} ${this.draggedWord === i.word && i.isMine ? 'selected-word' : ''} border-2 rounded p-2 text-[10px] font-bold uppercase transition-all">
+                                                    ${this.escapeHtml(i.display)} ${i.isMine ? '●' : ''}
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>`;
             }
         }
-        window.addEventListener('DOMContentLoaded', () => { app = new FocusGroupApp(); });
+
+        const app = new FocusGroupApp();
     </script>
 </body>
 </html>
-
-
