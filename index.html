@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Focus Group - Culture Behaviours</title>
+    <title>Current Culture Behaviors</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <style>
         body { touch-action: manipulation; }
-        .selected-word { 
-            ring: 4px solid #4f46e5 !important; 
-            box-shadow: 0 0 15px rgba(79, 70, 229, 0.4);
-            transform: scale(1.05); 
-            z-index: 50; 
-        }
+        .selected-word { ring: 4px solid #4f46e5 !important; transform: scale(1.05); z-index: 50; }
     </style>
 </head>
 <body class="bg-slate-100">
+    <nav class="bg-white border-b flex justify-center gap-6 p-3 text-[10px] font-black uppercase shadow-sm sticky top-0 z-[100]">
+        <a href="behave_index.html" class="text-indigo-600 border-b-2 border-indigo-600 pb-1">● Current Behaviors</a>
+        <a href="behave_preferred.html" class="text-slate-400 hover:text-rose-600 transition-colors pb-1">Preferred Behaviors</a>
+    </nav>
+
     <div id="root">
-        <div class="h-screen flex items-center justify-center font-bold text-slate-500">
-            Connecting...
+        <div class="h-screen flex items-center justify-center font-bold text-slate-500 text-center p-4">
+            Connecting to CURRENT Behaviors Board...
         </div>
     </div>
 
@@ -80,26 +80,26 @@
             }
 
             getUserId() {
-                let id = localStorage.getItem('fg-behave-v5-id');
+                let id = localStorage.getItem('fg-behave-current-id');
                 if (!id) {
                     id = 'u_' + Math.random().toString(36).substr(2, 9);
-                    localStorage.setItem('fg-behave-v5-id', id);
+                    localStorage.setItem('fg-behave-current-id', id);
                 }
                 return id;
             }
 
             loadMyWords() {
-                const saved = localStorage.getItem('my-behave-v5-list');
+                const saved = localStorage.getItem('my-behave-current-list');
                 return saved ? JSON.parse(saved) : [...initialWords];
             }
 
-            saveMyWords() { localStorage.setItem('my-behave-v5-list', JSON.stringify(this.myAvailableWords)); }
+            saveMyWords() { localStorage.setItem('my-behave-current-list', JSON.stringify(this.myAvailableWords)); }
 
             async init() {
                 try {
                     await firebase.auth().signInAnonymously();
                     this.setupPresence();
-                    database.ref('baskets').on('value', (s) => {
+                    database.ref('baskets_current').on('value', (s) => {
                         this.sharedBaskets = s.val() || { basket1: [], basket2: [], basket3: [], basket4: [] };
                         this.loading = false;
                         this.render();
@@ -110,11 +110,11 @@
             }
 
             setupPresence() {
-                const statusRef = database.ref('/status/' + this.userId);
+                const statusRef = database.ref('/status_current/' + this.userId);
                 database.ref('.info/connected').on('value', (s) => {
                     if (s.val()) statusRef.onDisconnect().remove().then(() => statusRef.set(true));
                 });
-                database.ref('/status').on('value', (s) => {
+                database.ref('/status_current').on('value', (s) => {
                     this.currentParticipants = s.numChildren() || 0;
                     const el = document.getElementById('user-count');
                     if (el) el.textContent = this.currentParticipants;
@@ -148,7 +148,7 @@
                     this.myAvailableWords = this.myAvailableWords.filter(w => w.text !== wordText);
                     this.saveMyWords();
                 } else {
-                    await database.ref(`baskets/${from}`).transaction((c) => {
+                    await database.ref(`baskets_current/${from}`).transaction((c) => {
                         if (!c) return c;
                         const idx = c.findIndex(i => i.word === wordText && i.userId === this.userId);
                         if (idx > -1) c.splice(idx, 1);
@@ -162,7 +162,7 @@
                         this.saveMyWords();
                     }
                 } else {
-                    await database.ref(`baskets/${target}`).transaction((c) => {
+                    await database.ref(`baskets_current/${target}`).transaction((c) => {
                         c = c || [];
                         c.push({ word: wordText, userId: this.userId, color: wordInfo.color });
                         return c;
@@ -175,10 +175,10 @@
             }
 
             async clearMyBaskets() {
-                if (!confirm("Return all your placed behaviors back to the pool?")) return;
+                if (!confirm("Remove all your behaviors from CURRENT baskets?")) return;
                 const recovered = [];
                 for (const bId of Object.keys(this.sharedBaskets)) {
-                    await database.ref(`baskets/${bId}`).transaction((current) => {
+                    await database.ref(`baskets_current/${bId}`).transaction((current) => {
                         if (!current) return current;
                         return current.filter(item => {
                             if (item.userId === this.userId) {
@@ -198,13 +198,13 @@
             }
 
             async resetAllBaskets() {
-                if (confirm('ADMIN: Wipe the entire board?')) {
-                    await database.ref('baskets').set({ basket1: [], basket2: [], basket3: [], basket4: [] });
+                if (confirm('ADMIN: Clear entire CURRENT behaviors board?')) {
+                    await database.ref('baskets_current').set({ basket1: [], basket2: [], basket3: [], basket4: [] });
                 }
             }
 
             resetMyPool() {
-                if (confirm('Refresh your available words pool?')) {
+                if (confirm('Refresh your available behaviors pool?')) {
                     const used = new Set();
                     Object.values(this.sharedBaskets).forEach(b => {
                         if (Array.isArray(b)) b.forEach(i => { if (i.userId === this.userId) used.add(i.word); });
@@ -223,7 +223,7 @@
                 });
                 const link = document.createElement("a");
                 link.setAttribute("href", encodeURI(csv));
-                link.setAttribute("download", "behavior_results.csv");
+                link.setAttribute("download", "current_behaviors.csv");
                 link.click();
             }
 
@@ -251,11 +251,14 @@
                 if (this.loading) return;
 
                 root.innerHTML = `
-                <div class="min-h-screen p-2 md:p-4">
+                <div class="min-h-screen p-2 md:p-4 text-slate-900">
                     <div class="max-w-6xl mx-auto">
                         <div class="text-center mb-6">
-                            <h1 class="text-xl md:text-3xl font-black uppercase tracking-tighter">Culture Behaviours Board</h1>
-                            <p class="text-indigo-600 font-bold">👥 Participants: <span id="user-count">${this.currentParticipants}</span></p>
+                            <span class="bg-indigo-600 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2 inline-block shadow-sm">Phase 1</span>
+                            <h1 class="text-xl md:text-3xl font-black uppercase tracking-tighter text-indigo-900">Current Culture Behaviors</h1>
+                            <p class="text-slate-500 text-sm font-medium italic">"How are we behaving right now?"</p>
+                            <p class="text-indigo-600 font-bold mt-2">👥 Participants: <span id="user-count">${this.currentParticipants}</span></p>
+                            
                             <div class="mt-4 flex gap-2 justify-center flex-wrap">
                                 <button onclick="app.clearMyBaskets()" class="bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Clear My Choices</button>
                                 <button onclick="app.resetMyPool()" class="bg-emerald-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-md">Refresh Pool</button>
@@ -268,12 +271,12 @@
 
                         <div ondragover="event.preventDefault()" ondrop="app.handleDrop('available')" onclick="app.handleDrop('available')"
                              class="bg-white rounded-2xl shadow-inner p-4 mb-6 border-2 border-dashed border-slate-300 min-h-24 text-center cursor-pointer">
-                            <h2 class="font-black text-[10px] uppercase text-slate-400 mb-3 tracking-widest">Available Pool (Click word then click basket)</h2>
-                            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2">
+                            <h2 class="font-black text-[10px] uppercase text-slate-400 mb-3 tracking-widest">Available Pool</h2>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
                                 ${this.myAvailableWords.map(w => `
                                     <div draggable="true" ondragstart="app.draggedWord='${this.escapeHtml(w.text)}'; app.draggedFrom='available'"
                                          onclick="event.stopPropagation(); app.handleSelect('${this.escapeHtml(w.text)}', 'available')"
-                                         class="${w.color} ${this.draggedWord === w.text ? 'selected-word' : ''} border-2 rounded-lg p-2 cursor-grab text-[10px] font-bold uppercase shadow-sm transition-all">
+                                         class="${w.color} ${this.draggedWord === w.text ? 'selected-word' : ''} border-2 rounded-lg p-2 cursor-grab text-[10px] font-bold uppercase shadow-sm">
                                         ${this.escapeHtml(w.text)}
                                     </div>
                                 `).join('')}
@@ -285,12 +288,12 @@
                                 const items = this.getBasketDisplay(this.sharedBaskets[b.id]);
                                 return `
                                     <div ondragover="event.preventDefault()" ondrop="app.handleDrop('${b.id}')" onclick="app.handleDrop('${b.id}')"
-                                         class="bg-white border-2 border-black rounded-2xl p-4 min-h-[180px] shadow-lg cursor-pointer">
-                                        <h3 class="font-black text-center mb-4 uppercase text-xs border-b-2 border-black pb-2 tracking-widest">${b.name}</h3>
+                                         class="bg-white border-2 border-slate-300 rounded-2xl p-4 min-h-[180px] shadow-lg cursor-pointer">
+                                        <h3 class="font-black text-center mb-4 uppercase text-xs border-b-2 border-slate-100 pb-2 text-slate-700">${b.name}</h3>
                                         <div class="grid grid-cols-2 gap-2">
                                             ${items.map(i => `
                                                 <div ${i.isMine ? `draggable="true" ondragstart="app.draggedWord='${this.escapeHtml(i.word)}'; app.draggedFrom='${b.id}'" onclick="event.stopPropagation(); app.handleSelect('${this.escapeHtml(i.word)}', '${b.id}')"` : ''}
-                                                     class="${i.color} ${i.isMine ? 'ring-2 ring-black' : 'opacity-60'} ${this.draggedWord === i.word && i.isMine ? 'selected-word' : ''} border-2 rounded p-2 text-[10px] font-bold uppercase transition-all">
+                                                     class="${i.color} ${i.isMine ? 'ring-2 ring-indigo-500' : 'opacity-60'} ${this.draggedWord === i.word && i.isMine ? 'selected-word' : ''} border-2 rounded p-2 text-[10px] font-bold uppercase shadow-sm">
                                                     ${this.escapeHtml(i.display)} ${i.isMine ? '●' : ''}
                                                 </div>
                                             `).join('')}
